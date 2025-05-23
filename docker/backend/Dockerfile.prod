@@ -1,19 +1,38 @@
 FROM php:8.2-fpm
 
+# Installation des dépendances système
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
-    libicu-dev
+    libzip-dev \
+    libicu-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN docker-php-ext-install pdo_mysql intl opcache
+# Installation des extensions PHP nécessaires
+RUN docker-php-ext-install pdo_mysql zip intl
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Installation de l'extension MongoDB avec la version compatible
+RUN pecl install mongodb-1.15.0 && docker-php-ext-enable mongodb
 
-WORKDIR /var/www
+# Installation de Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-COPY . .
+WORKDIR /var/www/html
 
-RUN composer install --no-dev --optimize-autoloader
+# Copie des fichiers composer d'abord
+COPY src/backend/composer.* ./
+
+# Installation des dépendances
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+# Copie du reste du code
+COPY src/backend/ .
+
+# Finalisation de l'installation
+RUN composer dump-autoload --no-dev --optimize && \
+    mkdir -p var && \
+    chown -R www-data:www-data var
 
 EXPOSE 9000
 
