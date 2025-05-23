@@ -7,6 +7,9 @@ services:
       dockerfile: ../../docker/frontend/Dockerfile.prod
     networks:
       - app-network
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=/api
 
   backend:
     build:
@@ -14,6 +17,12 @@ services:
       dockerfile: ../../docker/backend/Dockerfile.prod
     networks:
       - app-network
+    environment:
+      - APP_ENV=prod
+      - APP_SECRET=votre_secret_ici
+      - DATABASE_URL=mongodb://symfony:password@mongodb:27017/symfony?authSource=admin
+    depends_on:
+      - mongodb
 
   nginx:
     image: nginx:alpine
@@ -33,10 +42,22 @@ services:
       - mongodb_data:/data/db
     networks:
       - app-network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=symfony
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=symfony
+    command: ["mongod", "--auth"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   app-network:
     driver: bridge
+    name: app-network-prod
 
 volumes:
   mongodb_data:
+    name: mongodb_data_prod
