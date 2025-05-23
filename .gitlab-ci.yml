@@ -1,0 +1,122 @@
+stages:
+  - test
+  - build
+  - push
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: $CI_COMMIT_REF_NAME
+
+before_script:
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY
+
+# --- TEST PHASES ---
+
+lint_backend:
+  stage: test
+  script:
+    - echo "Lint backend PHP files"
+    - docker run --rm -v $CI_PROJECT_DIR/src/backend:/app php:8.2-cli php -l /app/index.php || true
+    # Replace with your real lint command, e.g. PHP_CodeSniffer or PHPStan
+  only:
+    - dev
+    - preprod
+    - prod
+
+lint_frontend:
+  stage: test
+  script:
+    - echo "Lint frontend JS/TS files"
+    - cd src/frontend && npm ci
+    - npx eslint . || true
+    # Replace with your real lint command
+  only:
+    - dev
+    - preprod
+    - prod
+
+api_tests:
+  stage: test
+  script:
+    - echo "Run API tests"
+    # Example: Use PHPUnit or any API test tool
+    # docker run --rm -v $CI_PROJECT_DIR/src/backend:/app php:8.2-cli vendor/bin/phpunit
+    # Or use a tool like Postman/newman, etc.
+    - echo "No API tests configured"
+  only:
+    - dev
+    - preprod
+    - prod
+
+# --- BUILD PHASES ---
+
+build_backend:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG -f docker/backend/Dockerfile.prod .
+  only:
+    - dev
+    - preprod
+    - prod
+  dependencies:
+    - lint_backend
+    - api_tests
+
+build_frontend:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG -f docker/frontend/Dockerfile.prod .
+  only:
+    - dev
+    - preprod
+    - prod
+  dependencies:
+    - lint_frontend
+
+# --- PUSH PHASES ---
+
+push_backend:
+  stage: push
+  script:
+    - docker push $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG
+    # Push to Docker Hub only on prod
+    - |
+      if [ "$CI_COMMIT_REF_NAME" = "prod" ]; then
+        echo "Toto99epita*" | docker login -u "thomas911999" --password-stdin
+        docker tag $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG thomas911999/TP_docker_advance:latest
+        docker push $thomas911999/TP_docker_advance:latest
+      fi
+  only:
+    - dev
+    - preprod
+    - prod
+  dependencies:
+    - build_backend
+
+push_frontend:
+  stage: push
+  script:
+    - docker push $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG
+    # Push to Docker Hub only on prod
+    - |
+      if [ "$CI_COMMIT_REF_NAME" = "prod" ]; then
+        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+        docker tag $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG $DOCKERHUB_USERNAME/tp_docker_advance-frontend:latest
+        docker push $DOCKERHUB_USERNAME/tp_docker_advance-frontend:latest
+      fi
+  only:
+    - dev
+    - preprod
+    - prod
+  dependencies:
+    - build_frontend
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploying stack on prod branch"
+    - docker stack deploy -c docker-stack.yml tp_docker_advance
+  only:
+    - prod
+  when: manual
