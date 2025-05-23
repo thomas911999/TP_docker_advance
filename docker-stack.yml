@@ -19,15 +19,12 @@ services:
 
   backend:
     image: ${REGISTRY:-localhost}/tp-docker-backend:latest
-    build:
-      context: .
-      dockerfile: docker/backend/Dockerfile.prod
     networks:
       - app-network
     environment:
       - APP_ENV=prod
-      - APP_SECRET=votre_secret_ici
-      - DATABASE_URL=mongodb://symfony:password@mongodb:27017/symfony?authSource=admin
+      - APP_SECRET=${APP_SECRET:-votre_secret_ici}
+      - DATABASE_URL=mongodb://${MONGO_ROOT_USER:-symfony}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/${MONGO_DATABASE:-symfony}?authSource=admin
     deploy:
       replicas: 3
       placement:
@@ -65,9 +62,9 @@ services:
     networks:
       - app-network
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=symfony
-      - MONGO_INITDB_ROOT_PASSWORD=password
-      - MONGO_INITDB_DATABASE=symfony
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER:-symfony}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-password}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-symfony}
     command: ["mongod", "--auth"]
     deploy:
       placement:
@@ -76,14 +73,16 @@ services:
       restart_policy:
         condition: on-failure
 
+configs:
+  nginx_config:
+    file: ./config/nginx/nginx.prod.conf
+
 networks:
   app-network:
     driver: overlay
 
 volumes:
   mongodb_data:
+  prometheus_data:
+  grafana_data:
     driver: local
-
-configs:
-  nginx_config:
-    file: ./config/nginx/nginx.prod.conf
