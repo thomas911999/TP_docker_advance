@@ -1,0 +1,50 @@
+stages:
+  - build
+  - push
+
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: $CI_COMMIT_REF_NAME
+
+before_script:
+  - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY
+
+build_backend:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG -f docker/backend/Dockerfile.prod .
+  only:
+    - dev
+    - preprod
+    - pro
+
+build_frontend:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG -f docker/frontend/Dockerfile.prod .
+  only:
+    - dev
+    - preprod
+    - pro
+
+push_backend:
+  stage: push
+  script:
+    - docker push $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG
+  only:
+    - dev
+    - preprod
+    - pro
+  dependencies:
+    - build_backend
+
+push_frontend:
+  stage: push
+  script:
+    - docker push $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG
+  only:
+    - dev
+    - preprod
+    - pro
+  dependencies:
+    - build_frontend
