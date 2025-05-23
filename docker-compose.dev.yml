@@ -1,5 +1,3 @@
-version: '3.5'
-
 services:
   frontend:
     build:
@@ -19,6 +17,12 @@ services:
       dockerfile: ../../docker/backend/Dockerfile.dev
     volumes:
       - ./src/backend:/var/www
+      - backend_vendor:/var/www/vendor    # Changed to named volume
+    ports:
+      - "9000:9000"
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=true
     networks:
       - app-network
 
@@ -49,3 +53,4 @@ networks:
 
 volumes:
   mongodb_data:
+  backend_vendor:    # Add this named volume
