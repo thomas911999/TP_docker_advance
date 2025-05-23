@@ -2,6 +2,7 @@ stages:
   - test
   - build
   - push
+  - deploy
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -79,6 +80,13 @@ push_backend:
   stage: push
   script:
     - docker push $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG
+    # Push to Docker Hub only on prod
+    - |
+      if [ "$CI_COMMIT_REF_NAME" = "prod" ]; then
+        echo "Toto99epita*" | docker login -u "thomas911999" --password-stdin
+        docker tag $CI_REGISTRY_IMAGE/backend:$IMAGE_TAG thomas911999/TP_docker_advance:latest
+        docker push $thomas911999/TP_docker_advance:latest
+      fi
   only:
     - dev
     - preprod
@@ -90,9 +98,25 @@ push_frontend:
   stage: push
   script:
     - docker push $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG
+    # Push to Docker Hub only on prod
+    - |
+      if [ "$CI_COMMIT_REF_NAME" = "prod" ]; then
+        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+        docker tag $CI_REGISTRY_IMAGE/frontend:$IMAGE_TAG $DOCKERHUB_USERNAME/tp_docker_advance-frontend:latest
+        docker push $DOCKERHUB_USERNAME/tp_docker_advance-frontend:latest
+      fi
   only:
     - dev
     - preprod
     - prod
   dependencies:
     - build_frontend
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploying stack on prod branch"
+    - docker stack deploy -c docker-stack.yml tp_docker_advance
+  only:
+    - prod
+  when: manual
