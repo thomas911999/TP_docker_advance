@@ -1,4 +1,5 @@
 stages:
+  - test
   - build
   - push
 
@@ -9,6 +10,46 @@ variables:
 before_script:
   - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY
 
+# --- TEST PHASES ---
+
+lint_backend:
+  stage: test
+  script:
+    - echo "Lint backend PHP files"
+    - docker run --rm -v $CI_PROJECT_DIR/src/backend:/app php:8.2-cli php -l /app/index.php || true
+    # Replace with your real lint command, e.g. PHP_CodeSniffer or PHPStan
+  only:
+    - dev
+    - preprod
+    - prod
+
+lint_frontend:
+  stage: test
+  script:
+    - echo "Lint frontend JS/TS files"
+    - cd src/frontend && npm ci
+    - npx eslint . || true
+    # Replace with your real lint command
+  only:
+    - dev
+    - preprod
+    - prod
+
+api_tests:
+  stage: test
+  script:
+    - echo "Run API tests"
+    # Example: Use PHPUnit or any API test tool
+    # docker run --rm -v $CI_PROJECT_DIR/src/backend:/app php:8.2-cli vendor/bin/phpunit
+    # Or use a tool like Postman/newman, etc.
+    - echo "No API tests configured"
+  only:
+    - dev
+    - preprod
+    - prod
+
+# --- BUILD PHASES ---
+
 build_backend:
   stage: build
   script:
@@ -16,7 +57,10 @@ build_backend:
   only:
     - dev
     - preprod
-    - pro
+    - prod
+  dependencies:
+    - lint_backend
+    - api_tests
 
 build_frontend:
   stage: build
@@ -25,7 +69,11 @@ build_frontend:
   only:
     - dev
     - preprod
-    - pro
+    - prod
+  dependencies:
+    - lint_frontend
+
+# --- PUSH PHASES ---
 
 push_backend:
   stage: push
@@ -34,7 +82,7 @@ push_backend:
   only:
     - dev
     - preprod
-    - pro
+    - prod
   dependencies:
     - build_backend
 
@@ -45,6 +93,6 @@ push_frontend:
   only:
     - dev
     - preprod
-    - pro
+    - prod
   dependencies:
     - build_frontend
