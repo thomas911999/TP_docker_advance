@@ -1,19 +1,39 @@
-FROM php:8.2-fpm
+FROM php:8.2-fpm AS builder
 
+WORKDIR /app
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
-    unzip \
-    libicu-dev
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip
 
-RUN docker-php-ext-install pdo_mysql intl opcache
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Create Symfony project
+RUN composer create-project symfony/skeleton .
+
+FROM php:8.2-fpm
 
 WORKDIR /var/www
 
-COPY . .
+# Copy application files
+COPY --from=builder /app /var/www
 
-RUN composer install --no-dev --optimize-autoloader
+# Install production dependencies
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    && docker-php-ext-install pdo_mysql
 
 EXPOSE 9000
 

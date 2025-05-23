@@ -12,11 +12,18 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Install Symfony CLI
+RUN curl -sS https://get.symfony.com/cli/installer | bash
+RUN mv /root/.symfony5/bin/symfony /usr/local/bin/symfony
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_mysql
+
+# Create Symfony project
+RUN composer create-project symfony/skeleton .
 
 EXPOSE 9000
 
